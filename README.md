@@ -1,7 +1,7 @@
 # astrbot_xiang_chicken (小祥找鸡)
 
 <p align="center">
-  <img src="logo.png" width="150" alt="小祥找鸡 Logo">
+  <img src="https://raw.githubusercontent.com/Maledog91/astrbot_plugin_xiang_chicken/main/logo.png" width="150" alt="小祥找鸡 Logo">
 </p>
 
 基于 SerpApi (Google Lens) 的识图找人插件。**核心功能是查推特 (X) 账号，附带推特图床的看图功能。** Kemono 仅作为反查推特账号的辅助跳板。
