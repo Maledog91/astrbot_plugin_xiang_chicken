@@ -121,18 +121,15 @@ class FindChicken(Star):
             title = str(match.get("title", "") or "").strip()
             if not link: continue
 
-            # 杀掉 Replies by
             if re.search(r"(?i)\bReplies by\b", title):
                 continue
 
-            # Kemono
             km = re.search(r"https?://(kemono\.[a-z]+)/([a-z0-9]+)/user/(\d+)", link, re.I)
             if km:
                 domain, service, creator_id = km.groups()
                 kemono_cands.append(f"kemono_{domain}_{service}_{creator_id}")
                 continue
 
-            # 镜像站提取
             is_mirror = any(m in link for m in ["sotwe.com", "twstalker.com", "nitter.", "twicomi.com"]) or "Twitter Profile" in title
             if is_mirror:
                 m_mirror = re.findall(r"@([A-Za-z0-9_]{1,15})", title)
@@ -141,36 +138,24 @@ class FindChicken(Star):
                         direct_authors.append(uid)
                 continue
 
-            # 官方推特提取
             if re.search(r"(?i)(?:x\.com|twitter\.com)", link):
-                # 1. RT 优先，抓到直接塞进直发池，绝对无敌！
                 rt_matches = re.findall(r"(?i)\bRT\s*@([A-Za-z0-9_]{1,15})\b", title)
                 if rt_matches:
                     for rt in rt_matches:
-                        if rt.lower() not in reserved and rt.lower() not in {x.lower() for x in direct_authors}:
-                            direct_authors.insert(0, rt)
-                    continue
-                
-                # 2. 精准秒杀特定的引流号 "account +"
-                if "account +" in title.lower() or "account+" in title.lower():
+                        if rt.lower() not in reserved and rt.lower() not in {x.lower() for x in rt_authors}:
+                            rt_authors.append(rt)
                     continue
 
                 if any(bad in link for bad in ["/media", "/likes", "/search", "with_replies"]):
                     continue
 
-                # 3. 带 (@xxx) 格式的优先插队
                 profile_uids = re.findall(r"@([A-Za-z0-9_]{1,15})", title)
                 if profile_uids:
                     for uid in profile_uids:
                         if uid.lower() not in reserved and uid.lower() not in {x.lower() for x in direct_authors}:
-                            direct_authors.insert(0, uid)
+                            direct_authors.append(uid)
                     continue
 
-                # 4. 残缺主页直接丢弃
-                if "/status/" not in link:
-                    continue
-
-                # 5. 兜底提取
                 m = re.search(r"(?i)(?:https?://)?(?:(?:www|mobile)\.)?(?:x\.com|twitter\.com)/([A-Za-z0-9_]{1,15})(?:/status/|/|$)", link)
                 if m:
                     uid = m.group(1)
