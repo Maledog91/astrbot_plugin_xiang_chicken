@@ -1,0 +1,26 @@
+{
+  "serpapi_key": {"description": "SerpApi API Key", "type": "string", "default": "", "hint": "必填。请前往 serpapi.com 注册获取。"},
+  "command": {"description": "找鸡触发指令", "type": "list", "items": {"type": "string"}, "default": ["小祥找鸡"]},
+  "look_cmd": {"description": "看图触发指令", "type": "list", "items": {"type": "string"}, "default": ["小祥看图"]},
+  "enable_look_pic": {"description": "是否开启看图功能", "type": "bool", "default": false, "hint": "⚠️ 需开启梯子"},
+  "look_pic_timeout": {"description": "看图权限有效期(秒)", "type": "int", "default": 300},
+  "auto_recall_time": {"description": "看图消息自动撤回时间(秒)", "type": "int", "default": 60, "hint": "发送看图合并转发后，多少秒自动撤回。填 0 则不自动撤回。"},
+  "search_cooldown": {"description": "找鸡冷却时间(秒)", "type": "int", "default": 10},
+  "enable_whitelist": {"description": "启用群聊白名单", "type": "bool", "default": true},
+  "group_whitelist": {"description": "群聊白名单", "type": "list", "items": {"type": "string"}, "default": []},
+  "look_pic_blacklist": {"description": "禁止看图的群号", "type": "list", "items": {"type": "string"}, "default": []},
+  "disabled_groups": {"description": "禁用找鸡的群号", "type": "list", "items": {"type": "string"}, "default": []},
+  "prompt_settings": {
+    "description": "🧠 AI 拒绝提示词设置（点击展开/折叠）",
+    "type": "object",
+    "items": {
+        "prompt_borrow": {"description": "白嫖拦截", "type": "list", "items": {"type": "string"}, "default": ["该用户试图白嫖别人查出来的福利姬照片。请针对他连找图都要蹭别人、毫无尊严的行为，暗示他像个只配捡食的寄生虫。"]},
+        "prompt_used": {"description": "已阅拦截", "type": "list", "items": {"type": "string"}, "default": ["该用户看完了福利姬照片还要继续索取。请针对他被低级欲望支配、贪得无厌的行为，暗示他这副欲求不满的嘴脸真是难看到极点。"]},
+        "prompt_expired": {"description": "超时过期", "type": "list", "items": {"type": "string"}, "default": ["该用户查了福利姬却超时了才来看。请针对他连发情看个图都磨磨唧唧的行为，暗示他连自己的欲望都管理不好。"]},
+        "prompt_cooldown": {"description": "防连刷冷却", "type": "list", "items": {"type": "string"}, "default": ["该用户为了找福利姬急躁地连发指令。请针对他急不可耐、连体面都顾不上的丑陋吃相，暗示他毫无教养。"]},
+        "prompt_group_disabled": {"description": "禁用群拦截", "type": "list", "items": {"type": "string"}, "default": ["【系统状态：此群已禁用找鸡】。请针对他无视群规、在公共场合暴露找福利姬癖好的行为，冷漠地请回他，强调这里不是垃圾桶。"]},
+        "prompt_look_disabled": {"description": "未开启看图", "type": "list", "items": {"type": "string"}, "default": ["【系统状态：看图未开启】。请针对他不知羞耻地索要擦边图片的行为，冷漠地俯视他，暗示他脑子里装的全是不堪入目的废料。"]},
+        "prompt_no_reply": {"description": "未引用拦截", "type": "list", "items": {"type": "string"}, "default": ["用户发指令时不知道要引用原消息。请针对他连找福利姬/看擦边图的基本规矩都不懂的行为，暗示他缺乏教养，连这点常识都没有。"]}
+    }
+  }
+}
