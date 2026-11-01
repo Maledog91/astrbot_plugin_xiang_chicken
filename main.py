@@ -294,8 +294,16 @@ class FindChicken(Star):
                         for u in img_urls:
                             async with session.get(u, headers={"User-Agent": self.ua}) as ir:
                                 if ir.status == 200: b64_list.append(f"base64://{base64.b64encode(await ir.read()).decode('utf-8')}")
-                        nodes = [{"type": "node", "data": {"user_id": 10000, "nickname": "小祥", "content": [{"type": "image", "data": {"file": b}}]}} for b in b64_list]
-                        nodes.append({"type": "node", "data": {"user_id": 10000, "nickname": "小祥", "content": [{"type": "text", "data": {"text": "⚠️ 提示：请自行核对是否为本人。"}}]}})
+                        try:
+                            info = await event.bot.call_action("get_login_info")
+                            bot_qq = int(info.get("user_id", 10000))
+                            bot_name = info.get("nickname", "小祥")
+                        except Exception:
+                            bot_qq = getattr(event.message_obj, "self_id", 10000)
+                            bot_name = "小祥"
+
+                        nodes = [{"type": "node", "data": {"user_id": bot_qq, "nickname": bot_name, "content": [{"type": "image", "data": {"file": b}}]}} for b in b64_list]
+                        nodes.append({"type": "node", "data": {"user_id": bot_qq, "nickname": bot_name, "content": [{"type": "text", "data": {"text": "⚠️ 提示：请自行核对是否为本人。"}}]}})
                         ret = None
                         if is_group: ret = await event.bot.call_action("send_group_forward_msg", group_id=int(group_id), messages=nodes)
                         else: ret = await event.bot.call_action("send_private_forward_msg", user_id=int(user_id), messages=nodes)
