@@ -41,8 +41,7 @@ class FindChicken(Star):
         self.look_pic_auth = {}
         self.search_cooldown = {}
         
-        p_cfg = cfg.get("prompt_settings", {})
-        # 完美兼容丰川祥子人设，不包含任何容易触发AI审核的脏字
+        p_cfg = cfg.get("prompt_settings", cfg)
         self.prompt_borrow = self._get_prompt_str(p_cfg, "prompt_borrow", "该用户试图白嫖别人查出来的照片。请结合丰川祥子高傲冷漠的客服人设，嘲讽他连找图都要蹭别人，是个满脑子只想着自己的伸手党。绝对不要使用脏字。")
         self.prompt_used = self._get_prompt_str(p_cfg, "prompt_used", "用户看完了还要继续索取。请结合丰川祥子阴阳怪气的语气，嘲讽他贪得无厌、欲求不满，这副贪心的嘴脸真难看。")
         self.prompt_expired = self._get_prompt_str(p_cfg, "prompt_expired", "用户超时未看。请用丰川祥子冷漠的语气，嘲讽他连看个图都磨磨唧唧，暗示他连自己的欲望都管理不好。")
@@ -51,22 +50,9 @@ class FindChicken(Star):
         self.prompt_look_disabled = self._get_prompt_str(p_cfg, "prompt_look_disabled", "未开启看图。请结合丰川祥子高高在上的语气，冷漠地俯视他，暗示他满脑子都是下贱废料。")
         self.prompt_no_reply = self._get_prompt_str(p_cfg, "prompt_no_reply", "用户未引用原消息。请用丰川祥子冷漠的语气，嘲讽他连最基本的规则都不懂，缺乏常识。")
 
-        # 祥子专属兜底金句（如果AI拉胯或者拒答，直接发这些）
-        self.no_auth_msgs = [
-            "贵安。真是高高在上呢，连自己动手的勇气都没有，只配捡别人剩下的图吗？",
-            "你这个人，脑子里只想着自己呢。白嫖别人查出来的东西，不觉得可悲吗？",
-            "连查图都要蹭别人的，你还能背负起什么？"
-        ]
-        self.already_used_msgs = [
-            "贪得无厌也该有个限度吧？看过了还来要，真是难看的嘴脸。",
-            "满脑子只想着自己的欲望，软弱的你真是没救了。",
-            "贵安。看过了就请回吧，这里不欢迎欲求不满的人。"
-        ]
-        self.expired_msgs = [
-            "连看个图都磨磨唧唧，活该错过。",
-            "软弱的你已经死了。连这点时间都把握不住吗？",
-            "贵安。超时了。你连管理自己欲望的能力都没有吗？"
-        ]
+        self.no_auth_msgs = ["贵安。真是高高在上呢，连自己动手的勇气都没有，只配捡别人剩下的图吗？", "你这个人，脑子里只想着自己呢。白嫖别人查出来的东西，不觉得可悲吗？"]
+        self.already_used_msgs = ["贪得无厌也该有个限度吧？看过了还来要，真是难看的嘴脸。", "满脑子只想着自己的欲望，软弱的你真是没救了。"]
+        self.expired_msgs = ["连看个图都磨磨唧唧，活该错过。", "贵安。超时了。你连管理自己欲望的能力都没有吗？"]
         self.disabled_msgs = ["规矩就是规矩。这里不是垃圾桶。"]
         self.look_pic_msgs = ["满脑子都是下贱废料，真是不堪入目。"]
         self.no_reply_msgs = ["连最基本的引用规矩都不懂，缺乏教养。"]
@@ -92,7 +78,6 @@ class FindChicken(Star):
                 resp = await provider.text_chat(prompt=final_prompt, session_id=event.session_id)
                 if resp and resp.completion_text:
                     text = resp.completion_text.strip()
-                    # 🌟 防AI背刺机制：如果AI吐出了拒绝词汇，直接拦截，用祥子金句兜底！
                     if any(bad in text for bad in ["不能", "抱歉", "无法", "对不起", "违规", "拒绝", "作为", "不能帮"]):
                         return random.choice(default_msgs)
                     return text
@@ -108,13 +93,16 @@ class FindChicken(Star):
         except Exception: pass
 
     def extract_pools(self, matches):
-        abs_ids = set()
-        priority_names = set()
+        abs_ids = []
         kemono_links = set()
-        rt_ids = set() 
         
         exclude_sites = ["thefap.net", "kaizty", "misskon.com", "deviantart.com", "thotsbay.com"]
         
+        def add_id(uid):
+            if uid and uid.lower() not in ["home", "search", "hashtag", "intent", "settings", "i", "share", "login"]:
+                if uid not in abs_ids:
+                    abs_ids.append(uid)
+
         for m in matches or []:
             if not isinstance(m, dict): continue
             title = str(m.get("title", ""))
@@ -123,56 +111,41 @@ class FindChicken(Star):
             if re.search(r"(?i)\bReplies by\b", title): continue
             if any(site in link.lower() for site in exclude_sites): continue
 
-            km = re.search(r"https?://(kemono\.[a-z]+)/([a-z0-9]+)/user/(\d+)", link, re.I)
-            if km:
-                kemono_links.add(km.groups())
-                by_m = re.search(r'by\s*"([^"]+)"', title, re.I)
-                if by_m:
-                    name = by_m.group(1).strip()
-                    if len(name) >= 2: priority_names.add(name)
-                continue
-
-            if any(site in link.lower() for site in ["fapello.com", "fapeza.com", "masterfap.net"]):
-                slash = re.match(r"^([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)", title)
-                if slash:
-                    priority_names.add(slash.group(1).strip())
-                    priority_names.add(slash.group(2).strip())
-                else:
-                    fw = re.match(r"^([a-zA-Z0-9_]+)", title)
-                    if fw: priority_names.add(fw.group(1).strip())
-                continue
-
-            if any(s in link.lower() for s in ["sotwe.com", "twstalker.com", "instalker.com"]):
-                lm = re.search(r'https?://(?:www\.)?(?:sotwe|twstalker|instalker)\.com/([A-Za-z0-9_]+)', link, re.I)
-                if lm: abs_ids.add(lm.group(1))
-                pm = re.search(r"\(@([A-Za-z0-9_]{1,15})\)", title)
-                if pm: abs_ids.add(pm.group(1))
-                continue
-
-            if re.search(r"(?i)(?:x\.com|twitter\.com)", link):
-                lm = re.search(r"(?i)(?:x\.com|twitter\.com)/([A-Za-z0-9_]{1,15})", link)
-                if lm and lm.group(1).lower() not in ["home", "search", "hashtag", "intent", "settings", "i", "share", "login"]:
-                    abs_ids.add(lm.group(1))
-                continue
-
+            # 🚨 RT 铁律：只要包含 RT，只提取 RT @xxxx，直接跳过，绝对不看网址！
             is_rt = bool(re.search(r"(?i)\bRT\b|بواسطة|repost|转发", title))
             if is_rt:
                 for rid in re.findall(r"(?i)\bRT\s*@([A-Za-z0-9_]{1,15})\b", title):
-                    rt_ids.add(rid)
-                for pm in re.findall(r"\(@([A-Za-z0-9_]{1,15})\)", title):
-                    rt_ids.add(pm)
+                    add_id(rid)
                 continue
 
-            pm = re.search(r"\(@([A-Za-z0-9_]{1,15})\)", title)
-            if pm: abs_ids.add(pm.group(1))
+            # 提取所有的 (@xxxx)
+            for pm in re.findall(r"\(@([A-Za-z0-9_]{1,15})\)", title):
+                add_id(pm)
 
+            # 只要结果里带了 X 网址，直接抠出网址里的 ID
+            if re.search(r"(?i)(?:x\.com|twitter\.com)", link):
+                lm = re.search(r"(?i)(?:x\.com|twitter\.com)/([A-Za-z0-9_]{1,15})", link)
+                if lm: add_id(lm.group(1))
+
+            # 处理 xxx on X (纯英文)
             om = re.search(r"^(.+?)\s+on\s+X", title, re.I)
             if om:
-                name = re.sub(r'\(@[^)]+\)', '', om.group(1)).strip()
-                name = re.sub(r'[^a-zA-Z0-9\u4e00-\u9fa5_]', '', name)
-                if len(name) >= 2: priority_names.add(name)
+                raw_name = om.group(1).strip()
+                eng_name = "".join(re.findall(r'[a-zA-Z0-9_]+', raw_name))
+                if len(eng_name) >= 3: add_id(eng_name)
 
-        return list(abs_ids), list(priority_names), list(kemono_links), list(rt_ids)
+            # Kemono 反查
+            km = re.search(r"https?://(kemono\.[a-z]+)/([a-z0-9]+)/user/(\d+)", link, re.I)
+            if km: kemono_links.add(km.groups())
+
+            # Fapello 斜杠强拆
+            if any(site in link.lower() for site in ["fapello.com", "fapeza.com", "masterfap.net"]):
+                slash = re.match(r"^([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)", title)
+                if slash:
+                    add_id(slash.group(1).strip())
+                    add_id(slash.group(2).strip())
+
+        return abs_ids, list(kemono_links)
 
     async def get_fx(self, session, uid):
         if not uid: return "未知", 0
@@ -294,6 +267,7 @@ class FindChicken(Star):
                         for u in img_urls:
                             async with session.get(u, headers={"User-Agent": self.ua}) as ir:
                                 if ir.status == 200: b64_list.append(f"base64://{base64.b64encode(await ir.read()).decode('utf-8')}")
+                        
                         try:
                             info = await event.bot.call_action("get_login_info")
                             bot_qq = int(info.get("user_id", 10000))
@@ -353,7 +327,12 @@ class FindChicken(Star):
             if not url: return
 
             async with aiohttp.ClientSession(trust_env=True) as session:
-                async with session.get(url) as r: img_bytes = await r.read()
+                try:
+                    async with session.get(url, headers={"User-Agent": self.ua}, timeout=20) as r:
+                        img_bytes = await r.read()
+                except Exception:
+                    yield event.plain_result("❌ 获取引用图片超时，请重试。")
+                    return
                 form = aiohttp.FormData()
                 form.add_field("api_key", self.api_key)
                 form.add_field("image", img_bytes, filename="img.jpg", content_type="image/jpeg")
@@ -372,45 +351,27 @@ class FindChicken(Star):
                 async def process_step(m_type):
                     try:
                         async with session.get("https://serpapi.com/search", params={**base_params, "type": m_type}, timeout=20) as r:
-                            a_ids, p_names, k_links, r_ids = self.extract_pools((await r.json(content_type=None)).get(m_type, []))
+                            a_ids, k_links = self.extract_pools((await r.json(content_type=None)).get(m_type, []))
                     except Exception: return []
 
                     accs = []
                     
-                    for uid in a_ids[:10]:
+                    # 1. 把提取出来的号全部查一遍
+                    for uid in a_ids[:15]:
+                        if any(bad in uid.lower() for bad in ["account", "http", "sotwe", "leaks", "fapello"]): continue
                         name, f = await self.get_fx(session, uid)
                         if self.check_valid_account(uid, name, f):
                             accs.append({"uid": uid, "name": name, "f": f})
-                    if accs: return accs
+                    
+                    # 2. 如果查到了，按粉丝数从高到低排序，粉丝最多的排第一
+                    if accs:
+                        accs.sort(key=lambda x: x["f"], reverse=True)
+                        return accs
                             
+                    # 3. 查 Kemono
                     if k_links:
                         k_accs = await self.resolve_kemono(session, k_links)
                         if k_accs: return k_accs
-
-                    for name in p_names[:5]:
-                        if any(bad in name.lower() for bad in ["account", "http", "sotwe", "leaks", "fapello", "nude"]): continue
-                        fx_name, f1 = await self.get_fx(session, name)
-                        if self.check_valid_account(name, fx_name, f1):
-                            accs.append({"uid": name, "name": fx_name, "f": f1})
-                            return accs
-                        try:
-                            async with session.get("https://serpapi.com/search", params={"engine": "google", "q": f'"{name}" site:x.com OR site:twitter.com', "api_key": self.api_key}, timeout=15) as sresp:
-                                if sresp.status == 200:
-                                    for org in (await sresp.json(content_type=None)).get("organic_results", [])[:3]:
-                                        link = org.get("link", "")
-                                        if "x.com" in link or "twitter.com" in link:
-                                            m = re.search(r'(?:x\.com|twitter\.com)/([A-Za-z0-9_]+)', link)
-                                            if m and m.group(1).lower() not in ["home", "search", "hashtag", "intent", "settings", "i"]:
-                                                real_name, real_f = await self.get_fx(session, m.group(1))
-                                                if self.check_valid_account(m.group(1), real_name, real_f):
-                                                    accs.append({"uid": m.group(1), "name": real_name, "f": real_f})
-                                                    return accs
-                        except Exception: pass
-
-                    for uid in r_ids[:5]:
-                        name, f = await self.get_fx(session, uid)
-                        if self.check_valid_account(uid, name, f):
-                            accs.append({"uid": uid, "name": name, "f": f})
                             
                     return accs
 
@@ -419,12 +380,8 @@ class FindChicken(Star):
                     all_valid_accounts = await process_step("visual_matches")
 
                 if all_valid_accounts:
-                    unique_accounts = {}
-                    for acc in all_valid_accounts:
-                        if acc["uid"] not in unique_accounts or acc["f"] > unique_accounts[acc["uid"]]["f"]:
-                            unique_accounts[acc["uid"]] = acc
-                    
-                    best_acc = max(unique_accounts.values(), key=lambda x: x["f"])
+                    # 经过排序后，第一个就是粉丝最多的那个
+                    best_acc = all_valid_accounts[0]
                     clean_name = re.sub(r'https?://\S+', '', best_acc['name'])
                     clean_name = re.sub(r'(?i)account\s*\+?', '', clean_name)
                     clean_name = clean_name.replace('|', ' ').replace('✨', '').strip()
